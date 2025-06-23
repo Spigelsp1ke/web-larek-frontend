@@ -1,5 +1,5 @@
 import {Component} from "../base/Component";
-import {IEvents} from "../base/events";
+import {EventEmitter} from "../base/events";
 import {ensureElement} from "../../utils/utils";
 
 interface IPage {
@@ -15,16 +15,22 @@ export class Page extends Component<IPage> {
     protected _basket: HTMLElement;
 
 
-    constructor(container: HTMLElement, protected events: IEvents) {
+    constructor(container: HTMLElement, protected events: EventEmitter) {
         super(container);
 
-        this._counter = ensureElement<HTMLElement>('.header__basket-counter');
-        this._catalog = ensureElement<HTMLElement>('.gallery');
-        this._wrapper = ensureElement<HTMLElement>('.page__wrapper');
-        this._basket = ensureElement<HTMLElement>('.header__basket');
+        this._counter = this.container.querySelector('.header__basket-counter');
+        this._catalog = this.container.querySelector('.gallery');
+        this._wrapper = this.container.querySelector('.page__wrapper');
+        this._basket = this.container.querySelector('.header__basket');
 
-        this._basket.addEventListener('click', () => {
-            this.events.emit('bids:open');
+        this.events.on<{ qty: number}>('ui:basket-counter', ({ qty }) => {
+          this._counter.textContent = String(qty);
+          this._counter.classList.toggle('hidden', qty === 0);
+        });
+
+        this._basket.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.events.emit('basket:open');
         });
     }
 

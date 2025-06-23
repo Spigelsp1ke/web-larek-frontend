@@ -22,12 +22,6 @@ export interface IProductList {
   items: IProduct[];
 }
 
-export interface ICartItem {
-  id: string;
-  title: string;
-  price: number;
-}
-
 export interface IOrderForm {
   email: string;
   phone: string;

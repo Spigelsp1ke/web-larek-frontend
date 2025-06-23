@@ -5,7 +5,7 @@ import { EventEmitter } from './components/base/events';
 import { ShopState } from './components/AppData';
 import { Page } from './components/common/Page';
 import { ModalView } from './components/common/Modal';
-import { ShopPresenter } from './components/ShopPresenter';
+import { initShop } from './components/shopPresenter';
 import { API_URL, CDN_URL } from './utils/constants';
 import { ensureElement } from './utils/utils';
 
@@ -19,7 +19,7 @@ const modal = new ModalView(
 	events
 );
 
-new ShopPresenter(api, state, page, modal, events).init();
+initShop(api, state, page, modal, events);
 
 events.onAll(({ eventName, data }) => console.log(eventName, data));
 

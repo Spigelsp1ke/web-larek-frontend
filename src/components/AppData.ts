@@ -1,5 +1,5 @@
 import { Model } from './base/Model';
-import { IEvents } from './base/events';
+import { EventEmitter } from './base/events';
 import { FormErrors, IAppState, IOrder, IProduct } from '../types';
 
 export class ShopState extends Model<IAppState> {
@@ -16,7 +16,7 @@ export class ShopState extends Model<IAppState> {
 	preview: string | null = null;
 	formErrors: FormErrors = {};
 
-	constructor(events: IEvents) {
+	constructor(events: EventEmitter) {
 		super({}, events);
 	}
 
@@ -44,8 +44,8 @@ export class ShopState extends Model<IAppState> {
 			0
 		);
 	}
-	setCatalog(items: IProduct[]) {
-		this.catalog = items;
-		this.emit('catalog:change', { catalog: items });
+	setCatalog(catalog: IProduct[]) {
+		this.catalog = catalog;
+		this.events.emit('catalog:change', { catalog });
 	}
 }
