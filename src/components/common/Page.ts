@@ -23,11 +23,6 @@ export class Page extends Component<IPage> {
         this._wrapper = this.container.querySelector('.page__wrapper');
         this._basket = this.container.querySelector('.header__basket');
 
-        this.events.on<{ qty: number}>('ui:basket-counter', ({ qty }) => {
-          this._counter.textContent = String(qty);
-          this._counter.classList.toggle('hidden', qty === 0);
-        });
-
         this._basket.addEventListener('click', (e) => {
             e.preventDefault();
             this.events.emit('basket:open');

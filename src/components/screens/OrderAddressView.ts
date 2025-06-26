@@ -1,46 +1,95 @@
 import { EventEmitter } from '../base/events';
-import { ModalView }    from '../common/Modal';
-import { ShopState }    from '../AppData';
-import { PaymentMethod } from '../../types';
+import { IOrder, PaymentMethod } from '../../types';
+import { Form } from '../common/Form';
 
 export class OrderAddressView {
 	private template: HTMLTemplateElement;
+	private form?: Form<IOrder>;
+	private currentPayment: PaymentMethod | null = null;
+	protected container: HTMLElement;
+	private formElement: HTMLFormElement;
+	private paymentButtons: HTMLButtonElement[];
+	private addressInput: HTMLInputElement;
 
-	constructor(
-		private modal: ModalView,
-		private events: EventEmitter,
-		private state: ShopState,
-	) {
+	constructor(private events: EventEmitter) {
 		this.template = document.getElementById('order') as HTMLTemplateElement;
+
+		this.container = this.template.content.firstElementChild!.cloneNode(
+			true
+		) as HTMLElement;
+		this.formElement = this.container as HTMLFormElement;
+		this.formElement.name = 'order-address';
+
+		this.paymentButtons = Array.from(
+			this.formElement.querySelectorAll<HTMLButtonElement>('button[name]')
+		);
+		this.addressInput = this.formElement.elements.namedItem(
+			'address'
+		) as HTMLInputElement;
+
+		this.setupEventListeners();
+
+		this.events.on(
+			'order:step1:validated',
+			(result: { valid: boolean; errors: string[] }) => {
+				this.updateFormValidation(result);
+			}
+		);
 	}
 
-	show() {
-		const node   = this.template.content.firstElementChild!.cloneNode(true) as HTMLElement;
-		const form   = node as HTMLFormElement;
-		const addr   = form.elements.namedItem('address') as HTMLInputElement;
-		const next   = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
-		const payBtn = Array.from(form.querySelectorAll<HTMLButtonElement>('button[name]'));
+	show(): HTMLElement {
+		this.form = new Form<IOrder>(this.formElement, this.events);
+		return this.container;
+	}
 
-		let payment: PaymentMethod | null = null;
+	private setupEventListeners() {
+		this.setupPaymentButtons();
 
-		payBtn.forEach(btn => btn.addEventListener('click', () => {
-			payment = btn.getAttribute('name') as PaymentMethod;
-			payBtn.forEach(b => b.classList.toggle('button_alt-active', b === btn));
-			validate();
-		}));
+		this.setupAddressInput();
 
-		const validate = () => next.disabled = !(addr.value.trim() && payment);
-		addr.addEventListener('input', validate);
-		validate();
+		this.setupFormSubmission();
+	}
 
-		form.addEventListener('submit', e => {
-			e.preventDefault();
-			this.events.emit('order:step1:complete', {
-				address: addr.value.trim(),
-				payment: payment as PaymentMethod,
+	private setupPaymentButtons() {
+		this.paymentButtons.forEach((btn) => {
+			btn.addEventListener('click', (e) => {
+				e.preventDefault();
+				const payment = btn.getAttribute('name') as PaymentMethod;
+
+				this.paymentButtons.forEach((b) =>
+					b.classList.toggle('button_alt-active', b === btn)
+				);
+
+				this.currentPayment = payment;
+				this.events.emit('order:change', {
+					key: 'payment',
+					value: payment,
+				});
 			});
 		});
+	}
 
-		this.modal.open(node);
+	private setupAddressInput() {
+		this.addressInput.addEventListener('input', () => {
+			this.events.emit('order:change', {
+				key: 'address',
+				value: this.addressInput.value,
+			});
+		});
+	}
+
+	private setupFormSubmission() {
+		this.formElement.addEventListener('submit', (e) => {
+			e.preventDefault();
+
+			this.events.emit('order:step1:complete', {
+				address: this.addressInput.value.trim(),
+				payment: this.currentPayment,
+			});
+		});
+	}
+
+	private updateFormValidation(result: { valid: boolean; errors: string[] }) {
+        this.form?.render(result);
 	}
 }

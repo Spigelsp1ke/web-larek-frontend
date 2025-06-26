@@ -1,8 +1,8 @@
-import { IEvents }   from '../base/events';
+import { EventEmitter }   from '../base/events';
 
 
 export abstract class Model<T> {
-    constructor(data: Partial<T>, protected events: IEvents) {
+    constructor(data: Partial<T>, protected events: EventEmitter) {
         Object.assign(this, data);
     }
 

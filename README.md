@@ -8,7 +8,7 @@ https://github.com/Spigelsp1ke/web-larek-frontend.git
 2. View - Полностью управляет DOM: ищет узлы, вешает обработчики, меняет классы.Эмитит события о действиях пользователя. Никогда не вызывает API и не меняет Model напрямую.
 Реализация: Component<T> и все наследники: Page, ProductCard, Basket, Form, ModalView
 3. Presenter -  Подписывается на события View и Model, делегирует логику в Model (добавить товар, оформить заказ), конвертирует ответы Model в «ui:*» события для View, не взаимодействует с DOM.
-Реализация: ShopPresenter + шина событий EventEmitter
+Реализация: index.ts + шина событий EventEmitter
 MVP-паттерн оставляет Presenter максимально без DOM, а View — без бизнес-логики. Это обеспечивает тестируемость, читаемость и простое масштабирование.
 
 Как загружается отдельный View:
@@ -40,74 +40,88 @@ MVP-паттерн оставляет Presenter максимально без DO
 ## Опиcание классов
 Базовый слой:
 - **Component<T>** 
-Поля: container: HTMLElementкласс 
-Методы: render, toggleClass, setText, setImage, setDisabled, setHidden, setVisible
+Поля: container: HTMLElement 
+Методы: render(data?: Partial<T>) - возвращает корневой DOM-элемент, toggleClass(element: HTMLElement, className: string, force?: boolean) - переключает класс, setText(element: HTMLElement, value: unknown) - устанавливает текстовое содержимое, setImage(element: HTMLImageElement, src: string, alt?: string) - устанавливает изображение с алтернативным текстом, setDisabled(element: HTMLElement, state: boolean) - меняет статус блокировки, setHidden(element: HTMLElement) - скрывает элемент, setVisible(element: HTMLElement) - показывает элемент
 Назначение: Базовый класс View: хранит корневой элемент и утилиты для работы c DOM.
 - **Model<T>** 
-Поля: events: IEvents 
+Поля: constructor(data: Partial<T>,events: EventEmitter) 
 Методы: emit(event, payload)
 Назначение: Абстракция модели предметной области и источник событий.
 - **EventEmitter** 
 Поля: _events: Map
-Методы: render, toggleClass, setText, setImage, setDisabled, setHidden, setVisible
+Методы: on<T extends object>(eventName: EventName, callback: (event: T) => void) - устанавливает обработчик на событие, off(eventName: EventName, callback: Subscriber) - Снять обработчик с события, emit<T extends object>(eventName: string, data?: T) - инициирует событие с данными, onAll(callback: (event: EmitterEvent) => void) - слушает все события, offAll() - сбрасывает все обработчики, trigger<T extends object>(eventName: string, context?: Partial<T>) - делает коллбек триггер, генерирующий событие при вызове
 Назначение: Шина событий для связи слоёв.
 - **Api** 
 Поля: baseUrl, options
-Методы: get, post, protected handleResponse
+Методы: get<T>(uri: string) - получает данные с сервера, post<T>(uri: string, data: object, method: ApiPostMethods = 'POST') - отправляет данные на сервер, protected handleResponse(response: Response): Promise<object> - нормализирует ответ
 Назначение: Унифицированные HTTP‑запросы.
+- **MarketAPI**
+Методы: getCatalog() — получает список товаров, конвертирует ссылки на CDN.
+createOrder(data) — создаёт заказ.
+Назначение: Надстройка над Api
+- **ShopState**
+Методы: addItem(id) / removeItem(id) — управляют списком в корзине и шлют basket:update, setOrderField(key, value) — универсальный сеттер полей заказа, Валидация разбита на validateStep1(), validateStep2() и validate() с эмитами order:validated, order:step1:validated, order:step2:validated
+Назначение: Расширяет Model<IAppState> и содержит бизнес‑правила
 
 Общие компоненты:
 - **Page** 
 Поля: \_counter, \_catalog, \_wrapper, \_basket
-Методы/сетторы: сетторы: counter, catalog, locked setHidden, setVisible
+Методы/сетторы: сетторы: counter(value: number) - устанавливает счетчик корзины, catalog(items: HTMLElement[]) - устанавливает каталог товаров, locked(value: boolean) - блокирует прокрутку страницы
 Назначение: Каркас страницы: шапка, счётчик корзины, галерея.
 - **ProductCard** 
 Поля: \_title, \_image, \_category, \_price, опц. \_description, \_button
-Методы/сетторы: сетторы: id, title, image, category, price, description
+Методы/сетторы: сетторы: id(value: string), title(value: string), image(value: string), category(value: string), price(value: number), description(value: string) — обновляют DOM; render() — отдаёт заполненный контейнер.
 Назначение: Карточка товара в каталоге/превью.
-- **Basket** 
-Поля: \_list, \_total, \_button
-Методы/сетторы: сетторы: items, total, selected
-Назначение: Представление модального окна корзины.
+- **PaymentSelector**
+Поля: get value() — текущий выбранный способ оплаты; constructor(root, events) — ищет все button[name], вешает обработчик клика: переключает активный стиль, сохраняет выбранное значение и эмитит событие payment:change.
+Назначение: UI‑контрол для выбора способа оплаты.
+- **BasketItem**
+Поля: constructor(product, index, events) — заполняет DOM‑узел, регистрирует удаление basket:remove.
+Методы: render() — возвращает готовый элемент.
+Назначение: Отдельная строка товара в корзине.
 - **Form<T>** 
 Поля: \_submit, \_errors
-Методы: render(state), protected onInputChange
+Методы: render(state: Partial<T> & IFormState) - возвращает контейнер, updateValidation(data: { valid: boolean; errors: string[] }) - обновляет валидацию, valid(value: boolean) - валидна ли форма или нет, errors(value: string | string[]) - текст ошибки
 Назначение: Универсальная форма с валидацией.
-- **ModalView** 
-Поля: open(fragment), close()
-Методы: get, post, protected handleResponse
-Назначение: Обёртка над модальным окном.
+
 
 View-экраны:
+- **ModalView** 
+Поля: constructor
+Методы: open() - вставляет контент, показывает модалку и бросает modal:open; close() — скрывает и очищает контент, эмитит modal:close.
+Назначение: Обёртка над модальным окном.
 - **CatalogView** 
 Поля: template — <template id="card-catalog">
-Методы: private render(products); подписка на ui:catalog в конструкторе
-Назначение: Генерирует карточки каталога, эмитит card:select
+Методы: private render(products) - создаёт карточки и заменяет содержимое галереи, подписка на ui:catalog в конструкторе
+Назначение: Использует ProductCardFactory для генеррации карточек, эмитит card:select
+- **ProductCardFactory**
+Методы: create(container: HTMLElement, product: IProduct) - генерирует карточку
+Назначение: Фабрика для генерации карточек
 - **PreviewView** 
 Поля: template — <template id="card-preview">
 Методы: show(product) — заполняет карточку, открывает модалку
 Назначение: Быстрый просмотр товара
 - **BasketView** 
 Поля: template — <template id="basket">	
-Методы: show() — обновить список, сумму и открыть
-private update()
+Методы: render() — возвращает элемент
+update() - обновляяет корзину
 Назначение: Корзина с товарами
 - **OrderAddressView** 
 Поля: template — <template id="order">	
-Методы: show() — форма адреса и выбора оплаты; валидация
-Назначение: Шаг 1 оформления
+Методы: show() — форма адреса и выбора оплаты; валидация; setupPaymentButtons() — переключает активную кнопку, эмитит order:change; setupAddressInput() — лайв‑валидация адреса; setupFormSubmission() — при submit эмитит order:step1:complete; updateFormValidation(result) — делегирует отрисовку ошибок валидации 
+Назначение: Шаг 1 оформления заказа
 - **OrderContactsView** 
 Поля: template — <template id="contacts">	
-Методы: show() — форма контактов, использует Form<T>
-Назначение: Шаг 2 оформления
+Методы: show() — форма почты и телефона; валидация; setupPaymentButtons() — переключает активную кнопку, эмитит order:change; setupAddressInput() — лайв‑валидация адреса; setupFormSubmission() — при submit эмитит order:step1:complete; updateFormValidation(result) — делегирует отрисовку ошибок валидации 
+Назначение: Шаг 2 оформления заказа
 - **SuccessView** 
 Поля: template — <template id="success">
-Методы: show(result) — выводит id заказа / списанную сумму
+Методы: show(res) —  выводит списанную сумму и возвращает элемент
 Назначение: Экран «Спасибо за заказ»
 
 Presenter:
-- **ShopPresenter.ts**
-Назначение: Связывает Model и View через события. Не работает с DOM напрямую — получает готовые шаблоны от View. Инстанциирует все View-классы; слушает пользовательские события → вызывает методы модели и показывает нужные View;загружает каталог при старте
+- **index.ts**
+Назначение: Связывает Model и View через события. Не работает с DOM напрямую — получает готовые шаблоны от View. Инстанциирует все View-классы; слушает пользовательские события → вызывает методы модели и показывает нужные View; загружает каталог при старте
 
 ## Пользовательские события
 ```
@@ -182,6 +196,29 @@ order:success
 Расположение: Presenter (после MarketAPI.order)
 Назначение: Заказ успешно создан; показать экран «Спасибо».
 
+```
+payment:change
+```
+Расположение: PaymentSelector
+Назначение: Cообщает о выбранном способе оплаты.
+
+```
+basket:render
+```
+Расположение: Presenter
+Назначение: Передаёт данные для перерисовки корзины
+
+```
+order:step1:validated / order:step2:validated
+```
+Расположение: Presenter
+Назначение: Результаты пошаговой проверки форм.
+
+```
+modal:request-close
+```
+Расположение: PreviewView
+Назначение: «Мягкая» просьба к ModalView закрыться
 
 ## Установка и запуск
 Для установки и запуска проекта необходимо выполнить команды

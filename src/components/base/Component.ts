@@ -1,4 +1,4 @@
-import {IEvents} from "./events";
+import {EventEmitter} from "./events";
 
 /**
  * Базовый компонент

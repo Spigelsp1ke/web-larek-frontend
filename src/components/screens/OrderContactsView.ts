@@ -1,43 +1,81 @@
 import { EventEmitter } from '../base/events';
-import { ModalView }    from '../common/Modal';
-import { Form }         from '../common/Form';
-import { ShopState }    from '../AppData';
-import { IOrderDataStep2 } from '../../types';
+import { Form } from '../common/Form';
+import { IOrder, IOrderDataStep2 } from '../../types';
 
 export class OrderContactsView {
 	private template: HTMLTemplateElement;
+	private form?: Form<IOrderDataStep2>;
+	protected container: HTMLElement;
+	private formElement: HTMLFormElement;
+	private phoneInput: HTMLInputElement;
+	private emailInput: HTMLInputElement;
 
-	constructor(
-		private modal: ModalView,
-		private events: EventEmitter,
-		private state: ShopState,
-	) {
+	constructor(private events: EventEmitter) {
 		this.template = document.getElementById('contacts') as HTMLTemplateElement;
-  }
+		this.container = this.template.content.firstElementChild!.cloneNode(
+			true
+		) as HTMLElement;
+		this.formElement = this.container as HTMLFormElement;
+		this.formElement.name = 'order-contacts';
 
-	show() {
-		const node = this.template.content.firstElementChild!.cloneNode(true) as HTMLElement;
-		const form = node as HTMLFormElement;
-    const phone   = form.elements.namedItem('phone') as HTMLInputElement;
-		const email   = form.elements.namedItem('email') as HTMLInputElement;
-		const next   = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+		this.phoneInput = this.formElement.elements.namedItem(
+			'phone'
+		) as HTMLInputElement;
+		this.emailInput = this.formElement.elements.namedItem(
+			'email'
+		) as HTMLInputElement;
 
-		new Form<IOrderDataStep2>(form, this.events);
+		this.setupEventListeners();
 
-    const validate = () => next.disabled = !(phone.value.trim() && email.value.trim());
-    phone.addEventListener('input', validate);
-    email.addEventListener('input', validate);
-    validate();
+		this.events.on(
+			'order:step2:validated',
+			(result: { valid: boolean; errors: string[] }) => {
+				this.updateFormValidation(result);
+			}
+		);
+	}
 
-		form.addEventListener('submit', e => {
-			e.preventDefault();
-			this.events.emit('order:complete', {
-				email: (form.elements.namedItem('email')  as HTMLInputElement).value.trim(),
-				phone: (form.elements.namedItem('phone')  as HTMLInputElement).value.trim(),
+	show(): HTMLElement {
+		this.form = new Form<IOrder>(this.formElement, this.events);
+		return this.container;
+	}
+
+	private setupEventListeners() {
+		this.setupInputHandlers();
+
+		this.setupFormSubmission();
+	}
+
+	private setupInputHandlers() {
+		this.phoneInput.addEventListener('input', () => {
+			this.events.emit('order:change', {
+				key: 'phone',
+				value: this.phoneInput.value,
 			});
-			this.modal.close();
 		});
 
-		this.modal.open(node);
+		this.emailInput.addEventListener('input', () => {
+			this.events.emit('order:change', {
+				key: 'email',
+				value: this.emailInput.value,
+			});
+		});
+	}
+
+	private setupFormSubmission() {
+		this.formElement.addEventListener('submit', (e) => {
+			e.preventDefault();
+
+			this.events.emit('order:complete', {
+				email: this.emailInput.value.trim(),
+				phone: this.phoneInput.value.trim(),
+			});
+
+			this.events.emit('modal:close');
+		});
+	}
+
+	private updateFormValidation(result: { valid: boolean; errors: string[] }) {
+        this.form?.render(result);
 	}
 }

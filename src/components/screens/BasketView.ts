@@ -1,52 +1,50 @@
 import { EventEmitter } from '../base/events';
-import { ModalView }    from '../common/Modal';
-import { Basket }       from '../common/Basket';
-import { ShopState }    from '../AppData';
+import { BasketItem } from '../common/BasketItem';
+import { IProduct } from '../../types';
+import { createElement, ensureElement } from '../../utils/utils';
+
+
+type BasketRenderData = {
+	items: Array<IProduct & { index: number }>;
+	total: number;
+	selected: string[];
+};
 
 export class BasketView {
 	private template: HTMLTemplateElement;
-	private component: Basket;
+	private element: HTMLElement;
+	private list: HTMLElement;
+	private total: HTMLElement;
+	private button: HTMLButtonElement;
 
 	constructor(
-		private modal: ModalView,
 		private events: EventEmitter,
-		private state: ShopState,
 	) {
 		this.template  = document.getElementById('basket') as HTMLTemplateElement;
-		const node     = this.template.content.firstElementChild!.cloneNode(true) as HTMLElement;
-		this.component = new Basket(node, events);
+		this.element = this.template.content.firstElementChild!.cloneNode(true) as HTMLElement;
+		this.list = ensureElement('.basket__list',  this.element);
+		this.total = ensureElement('.basket__price', this.element);
+		this.button = ensureElement<HTMLButtonElement>('.basket__button', this.element);
 
-		this.events.on('basket:update', () => this.update());
+		this.button.addEventListener('click', () => this.events.emit('order:open'));
 	}
 
-	show() {
-		this.update();
-		this.modal.open(this.component.render());
+	update({items, total, selected}: BasketRenderData): void {
+		if (items.length) {
+			const rows = items.map((p, i) => new BasketItem(p, i, this.events).render());
+			this.list.replaceChildren(...rows);
+		} else {
+			this.list.replaceChildren(
+				createElement('p', { textContent: 'Корзина пуста' })
+			);
+		};
+
+		this.total.textContent = `${total} синапсов`;
+
+		this.button.disabled = selected.length === 0;
 	}
 
-	private update() {
-		const tmplRow = document.getElementById('card-basket') as HTMLTemplateElement;
-		const rows: HTMLElement[] = [];
-		let   sum  = 0;
-
-		this.state.order.items.forEach((id, idx) => {
-			const p = this.state.catalog.find(c => c.id === id);
-			if (!p) return;
-			sum += p.price;
-
-			const li = tmplRow.content.firstElementChild!.cloneNode(true) as HTMLElement;
-			li.querySelector('.basket__item-index')!.textContent = String(idx + 1);
-			li.querySelector('.card__title')!.textContent        = p.title;
-			li.querySelector('.card__price')!.textContent        = `${p.price ?? '0'} синапсов`;
-
-			li.querySelector('.basket__item-delete')!
-			   .addEventListener('click', () => this.events.emit('basket:remove', { id }));
-
-			rows.push(li);
-		});
-
-		this.component.items    = rows;
-		this.component.total    = sum;
-		this.component.selected = this.state.order.items;
+	render(): HTMLElement {
+		return this.element;
 	}
 }

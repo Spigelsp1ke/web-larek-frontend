@@ -1,41 +1,60 @@
 import { EventEmitter } from '../base/events';
-import { Page }         from '../common/Page';
 import { IProduct } from '../../types';
-import { ProductCard }  from '../ProductCard';
+import { ProductCard }  from '../common/ProductCard';
+
+interface IProductCardFactory {
+	create: (container: HTMLElement, product: IProduct) => ProductCard;
+}
+
+class ProductCardFactory implements IProductCardFactory {
+	constructor(private events: EventEmitter) {}
+
+	create(container: HTMLElement, product: IProduct): ProductCard {
+		const card = new ProductCard(container, {
+			onClick: () => this.events.emit('card:select', { id: product.id }),
+		});
+
+		card.id = product.id;
+		card.title = product.title;
+		card.image = product.image;
+		card.category = product.category;
+		card.price = product.price;
+		if (product.description) card.description = product.description;
+
+		return card;
+	}
+}
 
 export class CatalogView {
 	private template: HTMLTemplateElement;
+	private container: HTMLElement;
+	private cardFactory: IProductCardFactory;
 
-	constructor(
-		private page: Page,
-		private events: EventEmitter,
+	constructor(private events: EventEmitter, 
+		cardFactory?: IProductCardFactory
 	) {
-		this.template = document.getElementById('card-catalog') as HTMLTemplateElement;
+		this.template = document.getElementById(
+			'card-catalog'
+		) as HTMLTemplateElement;
+		this.container = document.querySelector('.gallery') as HTMLElement;
 
-		this.events.on<{ catalog: IProduct[] }>('ui:catalog', ({ catalog }) => {
-      this.render(catalog);
-      });
+        this.cardFactory = cardFactory || new ProductCardFactory(events);
 	}
 
-	private render(products: IProduct[]) {
-
-    if (!products || products.length === 0) {
+	render(products: IProduct[]) {
+		if (!this.container || !this.template) {
 			return;
 		}
 
-		const cards = products.map((product) => {
-      if (!this.template || !this.template.content) {
-				return null;
-			}
+		const cards: HTMLElement[] = [];
 
-			const node  = this.template.content.firstElementChild!.cloneNode(true) as HTMLElement;
+		for(const product of products) {
+			const node = this.template.content.firstElementChild!.cloneNode(true) as HTMLElement;
 
-			const card  = new ProductCard(node, {
-			  onClick: () => this.events.emit('card:select', { id: product.id }),
-			});
-			Object.assign(card, product);
-			return node;
-		});
-		this.page.catalog = cards;
+            const card = this.cardFactory.create(node, product);
+			cards.push(card.render());
+		};
+
+		this.container.replaceChildren(...cards);
 	}
 }

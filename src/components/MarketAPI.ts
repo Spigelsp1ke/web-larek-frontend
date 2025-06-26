@@ -16,7 +16,7 @@ export class MarketAPI extends Api {
 		);
 	}
 
-	order(data: IOrder): Promise<IOrderResponse> {
+	createOrder(data: IOrder): Promise<IOrderResponse> {
 		return this.post<IOrderResponse>('/order', data);
 	}
 }

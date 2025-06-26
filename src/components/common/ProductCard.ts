@@ -1,6 +1,6 @@
-import { Component } from './base/Component';
-import { ensureElement } from './../utils/utils';
-import { IProduct } from './../types';
+import { Component } from '../base/Component';
+import { ensureElement } from '../../utils/utils';
+import { IProduct } from '../../types';
 
 interface ICardActions {
 	onClick: (e: MouseEvent) => void;
@@ -69,5 +69,9 @@ export class ProductCard extends Component<IProduct> {
 
 	set description(value: string) {
 		if (this._description) this.setText(this._description, value);
+	}
+
+	render() {
+		return this.container;
 	}
 }
