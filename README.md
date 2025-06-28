@@ -12,11 +12,9 @@ https://github.com/Spigelsp1ke/web-larek-frontend.git
 MVP-паттерн оставляет Presenter максимально без DOM, а View — без бизнес-логики. Это обеспечивает тестируемость, читаемость и простое масштабирование.
 
 Как загружается отдельный View:
-- При старте initShop создаёт одиночные экземпляры всех *View.
-- Presenter загружает каталог → Model.setCatalog → catalog:change.
-- CatalogView.render рисует карточки.
-- Далее любой экран открывается вызовом view.show() — без повторного new.
-- После закрытия модалки DOM-узел сохраняется в памяти; повторное открытие лишь меняет содержимое (update())
+- При старте index.ts создаёт одиночные экземпляры всех *View.
+- Presenter слушает события и вызывает view.render()/update()
+- Повторные открытия не создают новые объекты — показывается тот же DOM-узел, данные заменяются методами render / update
 
 ## Структура проекта
 
@@ -81,8 +79,10 @@ createOrder(data) — создаёт заказ.
 Назначение: Отдельная строка товара в корзине.
 - **Form<T>** 
 Поля: \_submit, \_errors
-Методы: render(state: Partial<T> & IFormState) - возвращает контейнер, updateValidation(data: { valid: boolean; errors: string[] }) - обновляет валидацию, valid(value: boolean) - валидна ли форма или нет, errors(value: string | string[]) - текст ошибки
-Назначение: Универсальная форма с валидацией.
+Методы: updateValidation(data: { valid: boolean; errors: string[] }) - обновляет валидацию
+Назначение: Абстрактный класс. Универсальная форма с валидацией. Обрабатывает input/submit, эмитит order:change; метод updateValidation() обновляет кнопку и блок ошибок.
+- **AddressForm / ContactsForm**
+Назначение: Наследуют Form без логики — пригодны для расширения. Создаютсяя только в presenter.
 
 
 View-экраны:
@@ -104,15 +104,15 @@ View-экраны:
 - **BasketView** 
 Поля: template — <template id="basket">	
 Методы: render() — возвращает элемент
-update() - обновляяет корзину
+update({ rows,total,selected }) - принимает готовые BasketItem-узлы,обновляет корзину
 Назначение: Корзина с товарами
 - **OrderAddressView** 
 Поля: template — <template id="order">	
-Методы: show() — форма адреса и выбора оплаты; валидация; setupPaymentButtons() — переключает активную кнопку, эмитит order:change; setupAddressInput() — лайв‑валидация адреса; setupFormSubmission() — при submit эмитит order:step1:complete; updateFormValidation(result) — делегирует отрисовку ошибок валидации 
+Методы: show() — форма адреса и выбора оплаты; валидация; setupPaymentButtons() — переключает активную кнопку, эмитит order:change; setupAddressInput() — лайв‑валидация адреса; setupFormSubmission() — при submit эмитит order:step1:complete, clear() - очищает форму после успешного заказа
 Назначение: Шаг 1 оформления заказа
 - **OrderContactsView** 
 Поля: template — <template id="contacts">	
-Методы: show() — форма почты и телефона; валидация; setupPaymentButtons() — переключает активную кнопку, эмитит order:change; setupAddressInput() — лайв‑валидация адреса; setupFormSubmission() — при submit эмитит order:step1:complete; updateFormValidation(result) — делегирует отрисовку ошибок валидации 
+Методы: show() — форма почты и телефона; валидация; setupPaymentButtons() — переключает активную кнопку, эмитит order:change; setupAddressInput() — лайв‑валидация адреса; setupFormSubmission() — при submit эмитит order:step1:complete, clear() - очищает форму после успешного заказа
 Назначение: Шаг 2 оформления заказа
 - **SuccessView** 
 Поля: template — <template id="success">
@@ -133,7 +133,7 @@ catalog:change
 ```
 card:select
 ```
-Расположение: ProductCard → ShopPresenter
+Расположение: ProductCard → Presenter
 Назначение: Пользователь открыл превью товара.
 
 ```

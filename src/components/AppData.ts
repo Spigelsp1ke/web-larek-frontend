@@ -107,7 +107,8 @@ export class ShopState extends Model<IAppState> {
 		return this.validateOrder();
 	}
 	clearBasket() {
-		this.order.items = [];
+		this.order.items.splice(0);
+        this.order.total = 0;
 		this.emit('basket:update', { items: [] });
 	}
 	getTotal() {

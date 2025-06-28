@@ -1,12 +1,9 @@
 import { EventEmitter } from '../base/events';
-import { Form } from '../common/Form';
-import { IOrder, IOrderDataStep2 } from '../../types';
 
 export class OrderContactsView {
 	private template: HTMLTemplateElement;
-	private form?: Form<IOrderDataStep2>;
 	protected container: HTMLElement;
-	private formElement: HTMLFormElement;
+	public formElement: HTMLFormElement;
 	private phoneInput: HTMLInputElement;
 	private emailInput: HTMLInputElement;
 
@@ -26,19 +23,9 @@ export class OrderContactsView {
 		) as HTMLInputElement;
 
 		this.setupEventListeners();
-
-		this.events.on(
-			'order:step2:validated',
-			(result: { valid: boolean; errors: string[] }) => {
-				this.updateFormValidation(result);
-			}
-		);
 	}
 
-	show(): HTMLElement {
-		this.form = new Form<IOrder>(this.formElement, this.events);
-		return this.container;
-	}
+    get element(): HTMLElement { return this.container; }
 
 	private setupEventListeners() {
 		this.setupInputHandlers();
@@ -75,7 +62,8 @@ export class OrderContactsView {
 		});
 	}
 
-	private updateFormValidation(result: { valid: boolean; errors: string[] }) {
-        this.form?.render(result);
-	}
+	public clear() {
+        this.formElement.reset();
+        this.formElement.querySelectorAll('input, textarea').forEach(el => (el.textContent = ''));
+    }
 }

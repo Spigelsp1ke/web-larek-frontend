@@ -5,7 +5,7 @@ import { createElement, ensureElement } from '../../utils/utils';
 
 
 type BasketRenderData = {
-	items: Array<IProduct & { index: number }>;
+	items: HTMLElement[];
 	total: number;
 	selected: string[];
 };
@@ -31,8 +31,7 @@ export class BasketView {
 
 	update({items, total, selected}: BasketRenderData): void {
 		if (items.length) {
-			const rows = items.map((p, i) => new BasketItem(p, i, this.events).render());
-			this.list.replaceChildren(...rows);
+			this.list.replaceChildren(...items);
 		} else {
 			this.list.replaceChildren(
 				createElement('p', { textContent: 'Корзина пуста' })

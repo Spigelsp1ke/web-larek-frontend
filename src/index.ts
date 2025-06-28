@@ -16,6 +16,9 @@ import { OrderAddressView } from './components/screens/OrderAddressView';
 import { OrderContactsView } from './components/screens/OrderContactsView';
 import { SuccessView } from './components/screens/SuccessView';
 import { IProduct } from './types';
+import { BasketItem } from './components/common/BasketItem';
+import { AddressForm } from './components/common/AddressForm';
+import { ContactsForm } from './components/common/ContactsForm';
 
 const events = new EventEmitter();
 const state = new ShopState(events);
@@ -37,6 +40,9 @@ const views = {
 	success: new SuccessView(),
 };
 
+const addressForm = new AddressForm(views.orderAddress.formElement, events);
+const contactsForm  = new ContactsForm(views.orderContacts.formElement, events);
+
 events.on<{ catalog: IProduct[] }>('catalog:change', ({ catalog }) =>
 	events.emit('ui:catalog', { catalog })
 );
@@ -44,7 +50,21 @@ events.on<{ items: string[] }>('basket:update', ({ items }) =>
 	events.emit('ui:basket-counter', { qty: items.length })
 );
 
-events.on<{ id: string }>('basket:add', ({ id }) => state.addItem(id));
+events.on<{ id: string }>('basket:add', ({ id }) => {
+	const product = state.catalog.find((p) => p.id === id);
+	if(!product) return;
+
+	if (product.price === null) {
+		alert('Эту позицию нельзя купить: бесценно');
+		return;
+	} 
+
+	if (state.order.items.includes(id)) {
+		return
+	}
+
+	state.addItem(id);
+});
 events.on<{ id: string }>('basket:remove', ({ id }) => state.removeItem(id));
 
 events.on<{ qty: number }>('ui:basket-counter', ({ qty }) => {
@@ -58,19 +78,29 @@ events.on<{ catalog: IProduct[] }>('ui:catalog', ({ catalog }) => {
 events.on<{ id: string }>('card:select', ({ id }) => {
 	const product = state.catalog.find((p) => p.id === id);
 	if (!product) return;
-	modal.open(views.preview.show(product));
+
+	const disabled =
+      product.price === null ||
+      state.order.items.includes(id);
+
+	modal.open(views.preview.show(product, disabled));
 });
 
 events.on('basket:update', () => {
-	const items = state.order.items
-		.map((id, index) => {
+	const items: HTMLElement[] = [];
+	let total = 0;
+
+	state.order.items.forEach((id, index) => {
 			const product = state.catalog.find((p) => p.id === id);
 			if (!product) return null;
-			return { ...product, index };
-		})
-		.filter(Boolean);
 
-	const total = items.reduce((sum, p) => sum + p.price, 0);
+			total += product.price;
+
+			const item = new BasketItem(product, index, events).render();
+            items.push(item);
+		})
+
+	state.order.total = total;
 
 	views.basket.update({
 		items,
@@ -80,66 +110,56 @@ events.on('basket:update', () => {
 });
 
 events.on('basket:open', () => {
-	const items = state.order.items
-    events.emit('basket:update', {
-		items,
-	})
 	modal.open(views.basket.render());
 });
 
-events.on('order:open', () => modal.open(views.orderAddress.show()));
+events.on('order:open', () => {
+  events.emit('order:step1:validated', state.validateStep1());
+  modal.open(views.orderAddress.element);
+});
 
-events.on<{ address: string; payment: 'card' | 'cash' }>(
-	'order:step1:complete',
-	(data) => {
-		state.order.address = data.address;
-		state.order.payment = data.payment;
-		views.orderContacts.show();
-		modal.open(views.orderContacts.show())
-	}
-);
+events.on('order:step1:complete', () => {
+  modal.open(views.orderContacts.element);
+});
 
-events.on<{ email: string; phone: string }>(
-	'order:complete',
-	async ({ email, phone }) => {
-		state.order.email = email;
-		state.order.phone = phone;
-		state.order.total = state.getTotal();
+events.on<{ valid: boolean; errors: string[] }>('order:step1:validated', ({ valid, errors }) => addressForm.updateValidation({ valid, errors }));
+events.on<{ valid: boolean; errors: string[] }>('order:step2:validated', ({ valid, errors }) => contactsForm.updateValidation({ valid, errors }));
 
+events.on('order:complete', async() => {
 		try {
-			const result = await api.createOrder(state.order);
-			state.clearBasket();
+			const orderSnapshot = { ...state.order };
+			const result = await api.createOrder(orderSnapshot);
+		    state.clearBasket();
+			Object.assign(state.order, {
+                address: '',
+                payment: null,
+                email  : '',
+                phone  : ''
+            });
+
+			views.orderAddress.clear();
+            views.orderContacts.clear();
+
 			modal.open(views.success.show(result));
 		} catch (e) {
 			alert('Не удалось оформить заказ: ' + e);
 		}
-	}
+    }	
 );
 
 events.on<{ key: string; value: string }>('order:change', ({ key, value }) => {
 	state.setOrderField(key as keyof typeof state.order, value);
 
-	if (['email', 'phone'].includes(key)) {
-		const result = state.validateStep2();
-		events.emit('order:step2:validated', result);
+	const step1 = ['address', 'payment'];
+	const step2 = ['email', 'phone'];
+
+	if (step1.includes(key)) {
+		events.emit('order:step1:validated', state.validateStep1());
+	} else if (step2.includes(key)) {
+		events.emit('order:step2:validated', state.validateStep2());
 	}
-	if (['address', 'payment'].includes(key)) {
-		const result = state.validateStep1();
-		events.emit('order:step1:validated', result);
-	}
 });
 
-events.on('order:validate-step1', () => {
-	state.validateStep1();
-});
-
-events.on('order:validate-step2', () => {
-	state.validateStep2();
-});
-
-events.on('order:validate', () => {
-	state.validate();
-});
 
 events.on('modal:request-close', () => {
   modal.close();
@@ -153,6 +173,15 @@ events.on('modal:close', () => {
 	page.locked = false;
 });
 
-(async () => state.setCatalog(await api.getCatalog()))();
+(async () => {
+  try {
+    const catalog = await api.getCatalog();
+    state.setCatalog(catalog);
+    events.emit('catalog:change', { catalog });
+  } catch (err) {
+    console.error('Не удалось получить каталог:', err);
+    alert('Каталог недоступен. Попробуйте позже.');
+  }
+})();
 
 events.onAll(({ eventName, data }) => console.log(eventName, data));

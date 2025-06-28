@@ -1,19 +1,17 @@
 import { EventEmitter } from '../base/events';
-import { IOrder, PaymentMethod } from '../../types';
-import { Form } from '../common/Form';
+import { PaymentMethod } from '../../types';
+
 
 export class OrderAddressView {
 	private template: HTMLTemplateElement;
-	private form?: Form<IOrder>;
+	private container: HTMLElement;
 	private currentPayment: PaymentMethod | null = null;
-	protected container: HTMLElement;
-	private formElement: HTMLFormElement;
+	public formElement: HTMLFormElement;
 	private paymentButtons: HTMLButtonElement[];
 	private addressInput: HTMLInputElement;
 
 	constructor(private events: EventEmitter) {
 		this.template = document.getElementById('order') as HTMLTemplateElement;
-
 		this.container = this.template.content.firstElementChild!.cloneNode(
 			true
 		) as HTMLElement;
@@ -28,19 +26,9 @@ export class OrderAddressView {
 		) as HTMLInputElement;
 
 		this.setupEventListeners();
-
-		this.events.on(
-			'order:step1:validated',
-			(result: { valid: boolean; errors: string[] }) => {
-				this.updateFormValidation(result);
-			}
-		);
 	}
 
-	show(): HTMLElement {
-		this.form = new Form<IOrder>(this.formElement, this.events);
-		return this.container;
-	}
+    get element(): HTMLElement { return this.container; }
 
 	private setupEventListeners() {
 		this.setupPaymentButtons();
@@ -89,7 +77,9 @@ export class OrderAddressView {
 		});
 	}
 
-	private updateFormValidation(result: { valid: boolean; errors: string[] }) {
-        this.form?.render(result);
-	}
+	public clear() {
+        this.formElement.reset();
+		this.formElement.querySelectorAll<HTMLButtonElement>('button[name]').forEach(btn => btn.classList.remove('button_alt-active'));
+        this.formElement.querySelectorAll('input, textarea').forEach(el => (el.textContent = ''));
+    }
 }
