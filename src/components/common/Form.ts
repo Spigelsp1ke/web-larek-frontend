@@ -1,4 +1,4 @@
-import {Component} from "../base/Component";
+import { Component } from "../base/Component";
 import { EventEmitter } from "../base/events";
 
 export interface IValidation {
@@ -10,7 +10,7 @@ export abstract class Form<T> extends Component<IValidation>  {
     protected _submit: HTMLButtonElement;
     protected _errors: HTMLElement;
 
-    constructor(protected form: HTMLFormElement, protected events: EventEmitter) {
+    constructor(protected form: HTMLFormElement, events: EventEmitter) {
         super(form);
 
         this._submit = form.querySelector('button[type=submit]');

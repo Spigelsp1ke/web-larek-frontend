@@ -1,24 +1,28 @@
+import { IOrderDataStep2 } from '../../types';
 import { EventEmitter } from '../base/events';
+import { Form } from '../common/Form';
 
-export class OrderContactsView {
+export class OrderContactsView extends Form<IOrderDataStep2> {
 	private template: HTMLTemplateElement;
-	protected container: HTMLElement;
-	public formElement: HTMLFormElement;
 	private phoneInput: HTMLInputElement;
 	private emailInput: HTMLInputElement;
 
-	constructor(private events: EventEmitter) {
-		this.template = document.getElementById('contacts') as HTMLTemplateElement;
-		this.container = this.template.content.firstElementChild!.cloneNode(
-			true
-		) as HTMLElement;
-		this.formElement = this.container as HTMLFormElement;
-		this.formElement.name = 'order-contacts';
 
-		this.phoneInput = this.formElement.elements.namedItem(
+	constructor(private events: EventEmitter) {
+		const template = document.getElementById('contacts') as HTMLTemplateElement;
+		const root = template.content.firstElementChild!.cloneNode(
+			true
+		) as HTMLFormElement;
+		root.name = 'order-contacts';
+
+		super(root, events);
+
+		this.template = template
+
+		this.phoneInput = root.elements.namedItem(
 			'phone'
 		) as HTMLInputElement;
-		this.emailInput = this.formElement.elements.namedItem(
+		this.emailInput = root.elements.namedItem(
 			'email'
 		) as HTMLInputElement;
 
@@ -50,8 +54,13 @@ export class OrderContactsView {
 	}
 
 	private setupFormSubmission() {
-		this.formElement.addEventListener('submit', (e) => {
+		this.container.addEventListener('submit', (e) => {
 			e.preventDefault();
+
+			if (!(this.container as HTMLFormElement).checkValidity()) {
+				this.updateValidation({ valid: false, errors: [] });
+				return;
+			}
 
 			this.events.emit('order:complete', {
 				email: this.emailInput.value.trim(),
@@ -63,7 +72,7 @@ export class OrderContactsView {
 	}
 
 	public clear() {
-        this.formElement.reset();
-        this.formElement.querySelectorAll('input, textarea').forEach(el => (el.textContent = ''));
+        (this.container as HTMLFormElement).reset();
+        (this.container as HTMLFormElement).querySelectorAll('input, textarea').forEach(el => ((el as HTMLInputElement | HTMLTextAreaElement).value = ''));
     }
 }

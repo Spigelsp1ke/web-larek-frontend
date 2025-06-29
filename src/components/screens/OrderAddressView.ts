@@ -1,27 +1,27 @@
 import { EventEmitter } from '../base/events';
-import { PaymentMethod } from '../../types';
+import { IOrderDataStep1, PaymentMethod } from '../../types';
+import { Form } from '../common/Form';
 
 
-export class OrderAddressView {
+export class OrderAddressView extends Form<IOrderDataStep1> {
 	private template: HTMLTemplateElement;
-	private container: HTMLElement;
 	private currentPayment: PaymentMethod | null = null;
-	public formElement: HTMLFormElement;
 	private paymentButtons: HTMLButtonElement[];
 	private addressInput: HTMLInputElement;
 
 	constructor(private events: EventEmitter) {
-		this.template = document.getElementById('order') as HTMLTemplateElement;
-		this.container = this.template.content.firstElementChild!.cloneNode(
-			true
-		) as HTMLElement;
-		this.formElement = this.container as HTMLFormElement;
-		this.formElement.name = 'order-address';
+        const template = document.getElementById('order') as HTMLTemplateElement;
+        const root = template.content.firstElementChild!.cloneNode(true) as HTMLFormElement;
+        root.name = 'order-address';
+
+        super(root, events);
+
+        this.template  = template;
 
 		this.paymentButtons = Array.from(
-			this.formElement.querySelectorAll<HTMLButtonElement>('button[name]')
+			root.querySelectorAll<HTMLButtonElement>('button[name]')
 		);
-		this.addressInput = this.formElement.elements.namedItem(
+		this.addressInput = root.elements.namedItem(
 			'address'
 		) as HTMLInputElement;
 
@@ -44,11 +44,12 @@ export class OrderAddressView {
 				e.preventDefault();
 				const payment = btn.getAttribute('name') as PaymentMethod;
 
+				this.currentPayment = payment;
+
 				this.paymentButtons.forEach((b) =>
 					b.classList.toggle('button_alt-active', b === btn)
 				);
 
-				this.currentPayment = payment;
 				this.events.emit('order:change', {
 					key: 'payment',
 					value: payment,
@@ -67,19 +68,18 @@ export class OrderAddressView {
 	}
 
 	private setupFormSubmission() {
-		this.formElement.addEventListener('submit', (e) => {
+		this.container.addEventListener('submit', (e) => {
 			e.preventDefault();
 
-			this.events.emit('order:step1:complete', {
-				address: this.addressInput.value.trim(),
-				payment: this.currentPayment,
-			});
+			this.events.emit('order:step1:complete');
 		});
 	}
 
 	public clear() {
-        this.formElement.reset();
-		this.formElement.querySelectorAll<HTMLButtonElement>('button[name]').forEach(btn => btn.classList.remove('button_alt-active'));
-        this.formElement.querySelectorAll('input, textarea').forEach(el => (el.textContent = ''));
+        (this.container as HTMLFormElement).reset();
+		this.paymentButtons.forEach(btn => btn.classList.remove('button_alt-active'));
+		this.currentPayment = null;
+		this.events.emit('order:change', { key: 'payment', value: null });
+        this.container.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea').forEach(el => (el.value = ''));
     }
 }

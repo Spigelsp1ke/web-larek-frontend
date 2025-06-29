@@ -1,6 +1,12 @@
 import { Model } from './base/Model';
 import { EventEmitter } from './base/events';
-import { FormErrors, IAppState, IOrder, IProduct, PaymentMethod } from '../types';
+import {
+	FormErrors,
+	IAppState,
+	IOrder,
+	IProduct,
+	PaymentMethod,
+} from '../types';
 
 export class ShopState extends Model<IAppState> {
 	catalog: IProduct[] = [];
@@ -9,7 +15,7 @@ export class ShopState extends Model<IAppState> {
 		email: '',
 		phone: '',
 		address: '',
-		payment: 'card',
+		payment: null,
 		total: 0,
 	};
 	loading = false;
@@ -36,7 +42,7 @@ export class ShopState extends Model<IAppState> {
 	}
 
 	setOrderField<K extends keyof IOrder>(key: K, value: IOrder[K]) {
-        this.order[key] = value;
+		this.order[key] = value;
 		this.validateOrder();
 	}
 
@@ -61,11 +67,11 @@ export class ShopState extends Model<IAppState> {
 
 		const result = {
 			valid: errors.length === 0,
-			errors
+			errors,
 		};
 
 		this.events.emit('order:validated', result);
-		
+
 		return result;
 	}
 
@@ -80,35 +86,38 @@ export class ShopState extends Model<IAppState> {
 			errors.push('Выберите способ оплаты');
 		}
 
-        return { 
-           valid: errors.length === 0, 
-           errors 
-        };
+		return {
+			valid: errors.length === 0,
+			errors,
+		};
 	}
 
 	validateStep2(): { valid: boolean; errors: string[] } {
 		const errors: string[] = [];
 
-        if (!this.order.email?.trim() || !/\S+@\S+\.\S+/.test(this.order.email)) {
+		if (!this.order.email?.trim() || !/\S+@\S+\.\S+/.test(this.order.email)) {
 			errors.push('Введите корректный email');
 		}
 
-		if (!this.order.phone?.trim() || this.order.phone.replace(/\D/g, '').length < 11) {
+		if (
+			!this.order.phone?.trim() ||
+			this.order.phone.replace(/\D/g, '').length < 11
+		) {
 			errors.push('Введите корректный номер телефона');
 		}
 
-        return { 
-           valid: errors.length === 0, 
-           errors 
-        };
+		return {
+			valid: errors.length === 0,
+			errors,
+		};
 	}
 
 	validate(): { valid: boolean; errors: string[] } {
 		return this.validateOrder();
 	}
 	clearBasket() {
-		this.order.items.splice(0);
-        this.order.total = 0;
+		this.order.items = [];
+		this.order.total = 0;
 		this.emit('basket:update', { items: [] });
 	}
 	getTotal() {

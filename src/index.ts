@@ -17,8 +17,6 @@ import { OrderContactsView } from './components/screens/OrderContactsView';
 import { SuccessView } from './components/screens/SuccessView';
 import { IProduct } from './types';
 import { BasketItem } from './components/common/BasketItem';
-import { AddressForm } from './components/common/AddressForm';
-import { ContactsForm } from './components/common/ContactsForm';
 
 const events = new EventEmitter();
 const state = new ShopState(events);
@@ -40,9 +38,6 @@ const views = {
 	success: new SuccessView(),
 };
 
-const addressForm = new AddressForm(views.orderAddress.formElement, events);
-const contactsForm  = new ContactsForm(views.orderContacts.formElement, events);
-
 events.on<{ catalog: IProduct[] }>('catalog:change', ({ catalog }) =>
 	events.emit('ui:catalog', { catalog })
 );
@@ -51,20 +46,9 @@ events.on<{ items: string[] }>('basket:update', ({ items }) =>
 );
 
 events.on<{ id: string }>('basket:add', ({ id }) => {
-	const product = state.catalog.find((p) => p.id === id);
-	if(!product) return;
-
-	if (product.price === null) {
-		alert('Эту позицию нельзя купить: бесценно');
-		return;
-	} 
-
-	if (state.order.items.includes(id)) {
-		return
-	}
-
 	state.addItem(id);
 });
+
 events.on<{ id: string }>('basket:remove', ({ id }) => state.removeItem(id));
 
 events.on<{ qty: number }>('ui:basket-counter', ({ qty }) => {
@@ -119,31 +103,34 @@ events.on('order:open', () => {
 });
 
 events.on('order:step1:complete', () => {
+  events.emit('order:step2:validated', state.validateStep2());
   modal.open(views.orderContacts.element);
 });
 
-events.on<{ valid: boolean; errors: string[] }>('order:step1:validated', ({ valid, errors }) => addressForm.updateValidation({ valid, errors }));
-events.on<{ valid: boolean; errors: string[] }>('order:step2:validated', ({ valid, errors }) => contactsForm.updateValidation({ valid, errors }));
+events.on<{ valid: boolean; errors: string[] }>('order:step1:validated', ({ valid, errors }) => views.orderAddress.updateValidation({ valid, errors }));
+events.on<{ valid: boolean; errors: string[] }>('order:step2:validated', ({ valid, errors }) => views.orderContacts.updateValidation({ valid, errors }));
 
 events.on('order:complete', async() => {
-		try {
-			const orderSnapshot = { ...state.order };
-			const result = await api.createOrder(orderSnapshot);
-		    state.clearBasket();
-			Object.assign(state.order, {
-                address: '',
-                payment: null,
-                email  : '',
-                phone  : ''
-            });
+	try {
+		const orderSnapshot = { ...state.order };
+		const result = await api.createOrder(orderSnapshot);
+		state.clearBasket();
+		Object.assign(state.order, {
+            address: '',
+            payment: null,
+            email  : '',
+            phone  : ''
+        });
 
-			views.orderAddress.clear();
-            views.orderContacts.clear();
+		views.orderAddress.clear();
+        views.orderContacts.clear();
+		events.emit('order:step1:validated', { valid: false, errors: [] });
+        events.emit('order:step2:validated', { valid: false, errors: [] });
 
-			modal.open(views.success.show(result));
-		} catch (e) {
-			alert('Не удалось оформить заказ: ' + e);
-		}
+		modal.open(views.success.show(result));
+	} catch (e) {
+		alert('Не удалось оформить заказ: ' + e);
+	    }
     }	
 );
 
